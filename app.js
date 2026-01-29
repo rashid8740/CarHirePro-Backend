@@ -37,6 +37,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Health check route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'CarHirePro Backend API', 
+    status: 'running',
+    version: '1.0.0'
+  });
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/cars', carRoutes);
@@ -46,14 +55,21 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/quick-actions', quickActionsRoutes);
 
-// In a pure API deployment on Vercel, we don't actually need to serve the frontend.
-// These static routes are mainly for local/combined deployments.
-const __dirname = path.resolve();
-app.use(express.static(path.join(__dirname, 'dist')));
-
-app.get('*', (req, res) => {
-  // Serve React index.html for any unknown routes (frontend handles routing)
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// Catch-all for undefined API routes
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    error: 'Not Found', 
+    message: `Route ${req.originalUrl} not found`,
+    availableRoutes: [
+      '/api/auth',
+      '/api/cars',
+      '/api/clients',
+      '/api/vehicles',
+      '/api/bookings',
+      '/api/analytics',
+      '/api/quick-actions'
+    ]
+  });
 });
 
 export default app;
