@@ -4,6 +4,7 @@ dotenv.config(); // must come first!
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import mongoose from 'mongoose';
 import connectDB from './src/config/db.js';
 import { createDemoUsers } from './src/controllers/authController.js';
 import authRoutes from './src/routes/authRoutes.js';
@@ -14,9 +15,16 @@ import bookingRoutes from './src/routes/bookingRoutes.js';
 import analyticsRoutes from './src/routes/analyticsRoutes.js';
 import quickActionsRoutes from './src/routes/quickActionsRoutes.js';
 
-// Connect to MongoDB (will run on each cold start in serverless)
-connectDB(); // uses MONGO_URI from .env
-createDemoUsers(); // create demo users on startup
+// Connect to MongoDB (non-blocking for serverless)
+// Don't await - let it connect in background, will retry on first request if needed
+connectDB().catch(err => {
+  console.error('Initial DB connection failed:', err.message);
+});
+
+// Create demo users (non-blocking, runs in background)
+createDemoUsers().catch(err => {
+  console.error('Demo users creation failed:', err.message);
+});
 
 const app = express();
 
@@ -37,12 +45,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Health check route
+// Health check route (doesn't require DB connection)
 app.get('/', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.json({ 
     message: 'CarHirePro Backend API', 
     status: 'running',
-    version: '1.0.0'
+    version: '1.0.0',
+    database: dbStatus
   });
 });
 
