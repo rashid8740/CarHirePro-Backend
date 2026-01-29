@@ -1,9 +1,13 @@
 import dotenv from 'dotenv';
-dotenv.config(); // must come first!
+// Load env vars - don't fail if .env doesn't exist (Vercel uses env vars from dashboard)
+try {
+  dotenv.config();
+} catch (err) {
+  console.warn('Could not load .env file:', err.message);
+}
 
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
 import mongoose from 'mongoose';
 import connectDB from './src/config/db.js';
 import { createDemoUsers } from './src/controllers/authController.js';
@@ -15,18 +19,20 @@ import bookingRoutes from './src/routes/bookingRoutes.js';
 import analyticsRoutes from './src/routes/analyticsRoutes.js';
 import quickActionsRoutes from './src/routes/quickActionsRoutes.js';
 
+// Initialize Express app
+const app = express();
+
 // Connect to MongoDB (non-blocking for serverless)
 // Don't await - let it connect in background, will retry on first request if needed
-connectDB().catch(err => {
+connectDB().then(() => {
+  // Only create demo users after DB is connected
+  createDemoUsers().catch(err => {
+    console.error('Demo users creation failed:', err.message);
+  });
+}).catch(err => {
   console.error('Initial DB connection failed:', err.message);
+  // Don't crash - function can still handle requests
 });
-
-// Create demo users (non-blocking, runs in background)
-createDemoUsers().catch(err => {
-  console.error('Demo users creation failed:', err.message);
-});
-
-const app = express();
 
 // Middleware
 const corsOptions = {
@@ -79,6 +85,15 @@ app.use('*', (req, res) => {
       '/api/analytics',
       '/api/quick-actions'
     ]
+  });
+});
+
+// Error handling middleware (must be last, with 4 parameters)
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err.message
   });
 });
 
