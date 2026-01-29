@@ -58,83 +58,52 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'API test route works!' });
 });
 
-// Dynamic route imports with error handling
-app.use('/api/auth', async (req, res, next) => {
+// Route handler factory
+const createRouteHandler = (routeImportPath) => async (req, res, next) => {
   try {
     await connectDB();
-    const authRoutes = (await import('../src/routes/authRoutes.js')).default;
-    return authRoutes(req, res, next);
+    const routes = (await import(routeImportPath)).default;
+    return routes(req, res, next);
   } catch (err) {
-    console.error('Auth routes error:', err);
-    res.status(500).json({ error: 'Failed to load auth routes', details: err.message });
+    console.error(`Route error (${routeImportPath}):`, err);
+    res.status(500).json({ error: 'Failed to load routes', details: err.message });
   }
-});
+};
 
-app.use('/api/cars', async (req, res, next) => {
-  try {
-    await connectDB();
-    const carRoutes = (await import('../src/routes/carRoutes.js')).default;
-    return carRoutes(req, res, next);
-  } catch (err) {
-    console.error('Car routes error:', err);
-    res.status(500).json({ error: 'Failed to load car routes', details: err.message });
-  }
-});
+// Auth routes - support both /auth and /api/auth
+const authHandler = createRouteHandler('../src/routes/authRoutes.js');
+app.use('/auth', authHandler);
+app.use('/api/auth', authHandler);
 
-app.use('/api/clients', async (req, res, next) => {
-  try {
-    await connectDB();
-    const clientRoutes = (await import('../src/routes/clientRoutes.js')).default;
-    return clientRoutes(req, res, next);
-  } catch (err) {
-    console.error('Client routes error:', err);
-    res.status(500).json({ error: 'Failed to load client routes', details: err.message });
-  }
-});
+// Cars routes
+const carsHandler = createRouteHandler('../src/routes/carRoutes.js');
+app.use('/cars', carsHandler);
+app.use('/api/cars', carsHandler);
 
-app.use('/api/vehicles', async (req, res, next) => {
-  try {
-    await connectDB();
-    const vehicleRoutes = (await import('../src/routes/vehicleRoutes.js')).default;
-    return vehicleRoutes(req, res, next);
-  } catch (err) {
-    console.error('Vehicle routes error:', err);
-    res.status(500).json({ error: 'Failed to load vehicle routes', details: err.message });
-  }
-});
+// Clients routes
+const clientsHandler = createRouteHandler('../src/routes/clientRoutes.js');
+app.use('/clients', clientsHandler);
+app.use('/api/clients', clientsHandler);
 
-app.use('/api/bookings', async (req, res, next) => {
-  try {
-    await connectDB();
-    const bookingRoutes = (await import('../src/routes/bookingRoutes.js')).default;
-    return bookingRoutes(req, res, next);
-  } catch (err) {
-    console.error('Booking routes error:', err);
-    res.status(500).json({ error: 'Failed to load booking routes', details: err.message });
-  }
-});
+// Vehicles routes
+const vehiclesHandler = createRouteHandler('../src/routes/vehicleRoutes.js');
+app.use('/vehicles', vehiclesHandler);
+app.use('/api/vehicles', vehiclesHandler);
 
-app.use('/api/analytics', async (req, res, next) => {
-  try {
-    await connectDB();
-    const analyticsRoutes = (await import('../src/routes/analyticsRoutes.js')).default;
-    return analyticsRoutes(req, res, next);
-  } catch (err) {
-    console.error('Analytics routes error:', err);
-    res.status(500).json({ error: 'Failed to load analytics routes', details: err.message });
-  }
-});
+// Bookings routes
+const bookingsHandler = createRouteHandler('../src/routes/bookingRoutes.js');
+app.use('/bookings', bookingsHandler);
+app.use('/api/bookings', bookingsHandler);
 
-app.use('/api/quick-actions', async (req, res, next) => {
-  try {
-    await connectDB();
-    const quickActionsRoutes = (await import('../src/routes/quickActionsRoutes.js')).default;
-    return quickActionsRoutes(req, res, next);
-  } catch (err) {
-    console.error('Quick actions routes error:', err);
-    res.status(500).json({ error: 'Failed to load quick actions routes', details: err.message });
-  }
-});
+// Analytics routes
+const analyticsHandler = createRouteHandler('../src/routes/analyticsRoutes.js');
+app.use('/analytics', analyticsHandler);
+app.use('/api/analytics', analyticsHandler);
+
+// Quick actions routes
+const quickActionsHandler = createRouteHandler('../src/routes/quickActionsRoutes.js');
+app.use('/quick-actions', quickActionsHandler);
+app.use('/api/quick-actions', quickActionsHandler);
 
 // Catch-all for undefined routes
 app.use('*', (req, res) => {
