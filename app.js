@@ -62,14 +62,18 @@ app.get('/', (req, res) => {
   });
 });
 
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/cars', carRoutes);
-app.use('/api/clients', clientRoutes);
-app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/quick-actions', quickActionsRoutes);
+// API routes - register only if routes are available
+try {
+  app.use('/api/auth', authRoutes);
+  app.use('/api/cars', carRoutes);
+  app.use('/api/clients', clientRoutes);
+  app.use('/api/vehicles', vehicleRoutes);
+  app.use('/api/bookings', bookingRoutes);
+  app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/quick-actions', quickActionsRoutes);
+} catch (err) {
+  console.error('Error registering routes:', err.message);
+}
 
 // Catch-all for undefined API routes
 app.use('*', (req, res) => {
@@ -98,5 +102,3 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
-
-
