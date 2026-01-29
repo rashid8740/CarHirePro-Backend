@@ -2,6 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 
+// Import routes statically
+import authRoutes from '../src/routes/authRoutes.js';
+import carRoutes from '../src/routes/carRoutes.js';
+import clientRoutes from '../src/routes/clientRoutes.js';
+import vehicleRoutes from '../src/routes/vehicleRoutes.js';
+import bookingRoutes from '../src/routes/bookingRoutes.js';
+import analyticsRoutes from '../src/routes/analyticsRoutes.js';
+import quickActionsRoutes from '../src/routes/quickActionsRoutes.js';
+
 const app = express();
 
 // CORS configuration - must specify exact origin when using credentials
@@ -26,12 +35,14 @@ app.use(express.json());
 let isConnected = false;
 
 const connectDB = async () => {
-  if (isConnected) return;
+  if (isConnected && mongoose.connection.readyState === 1) {
+    return;
+  }
   
   const uri = process.env.MONGO_URI;
   if (!uri) {
     console.error('MONGO_URI not set');
-    return;
+    throw new Error('MONGO_URI environment variable is not set');
   }
   
   try {
@@ -40,70 +51,66 @@ const connectDB = async () => {
     console.log('MongoDB connected');
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
+    throw err;
   }
 };
 
-// Health check route
+// Middleware to ensure DB connection before routes that need it
+const ensureDB = async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Database connection failed', details: err.message });
+  }
+};
+
+// Health check route (no DB needed)
 app.get('/', (req, res) => {
   res.json({ 
     message: 'CarHirePro Backend API', 
     status: 'running',
     mongoUri: process.env.MONGO_URI ? 'set' : 'NOT SET',
-    jwtSecret: process.env.JWT_SECRET ? 'set' : 'NOT SET'
+    jwtSecret: process.env.JWT_SECRET ? 'set' : 'NOT SET',
+    dbState: mongoose.connection.readyState
   });
 });
 
-// Test route
+// Test route (no DB needed)
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API test route works!' });
 });
-
-// Route handler factory
-const createRouteHandler = (routeImportPath) => async (req, res, next) => {
-  try {
-    await connectDB();
-    const routes = (await import(routeImportPath)).default;
-    return routes(req, res, next);
-  } catch (err) {
-    console.error(`Route error (${routeImportPath}):`, err);
-    res.status(500).json({ error: 'Failed to load routes', details: err.message });
-  }
-};
+app.get('/test', (req, res) => {
+  res.json({ message: 'Test route works!' });
+});
 
 // Auth routes - support both /auth and /api/auth
-const authHandler = createRouteHandler('../src/routes/authRoutes.js');
-app.use('/auth', authHandler);
-app.use('/api/auth', authHandler);
+app.use('/auth', ensureDB, authRoutes);
+app.use('/api/auth', ensureDB, authRoutes);
 
 // Cars routes
-const carsHandler = createRouteHandler('../src/routes/carRoutes.js');
-app.use('/cars', carsHandler);
-app.use('/api/cars', carsHandler);
+app.use('/cars', ensureDB, carRoutes);
+app.use('/api/cars', ensureDB, carRoutes);
 
 // Clients routes
-const clientsHandler = createRouteHandler('../src/routes/clientRoutes.js');
-app.use('/clients', clientsHandler);
-app.use('/api/clients', clientsHandler);
+app.use('/clients', ensureDB, clientRoutes);
+app.use('/api/clients', ensureDB, clientRoutes);
 
 // Vehicles routes
-const vehiclesHandler = createRouteHandler('../src/routes/vehicleRoutes.js');
-app.use('/vehicles', vehiclesHandler);
-app.use('/api/vehicles', vehiclesHandler);
+app.use('/vehicles', ensureDB, vehicleRoutes);
+app.use('/api/vehicles', ensureDB, vehicleRoutes);
 
 // Bookings routes
-const bookingsHandler = createRouteHandler('../src/routes/bookingRoutes.js');
-app.use('/bookings', bookingsHandler);
-app.use('/api/bookings', bookingsHandler);
+app.use('/bookings', ensureDB, bookingRoutes);
+app.use('/api/bookings', ensureDB, bookingRoutes);
 
 // Analytics routes
-const analyticsHandler = createRouteHandler('../src/routes/analyticsRoutes.js');
-app.use('/analytics', analyticsHandler);
-app.use('/api/analytics', analyticsHandler);
+app.use('/analytics', ensureDB, analyticsRoutes);
+app.use('/api/analytics', ensureDB, analyticsRoutes);
 
 // Quick actions routes
-const quickActionsHandler = createRouteHandler('../src/routes/quickActionsRoutes.js');
-app.use('/quick-actions', quickActionsHandler);
-app.use('/api/quick-actions', quickActionsHandler);
+app.use('/quick-actions', ensureDB, quickActionsRoutes);
+app.use('/api/quick-actions', ensureDB, quickActionsRoutes);
 
 // Catch-all for undefined routes
 app.use('*', (req, res) => {
